@@ -289,6 +289,14 @@ void parse_file_work(struct sdp_work *curr, const char *filename, const char *p)
 			curr->load_addr = get_val(&p, 16);
 			p = skip(p,',');
 		}
+		if (strncmp(p, "load_size", 9) == 0) {
+			p += 9;
+			if (strncmp(p, "0x", 2) == 0)
+				curr->load_size = get_val(&p, 16);
+			else
+				curr->load_size = get_val(&p, 10);
+			p = skip(p,',');
+		}
 		if (strncmp(p, "jump", 4) == 0) {
 			p += 4;
 			curr->jump_mode = J_ADDR;
@@ -1633,7 +1641,7 @@ int DoIRomDownload(struct sdp_dev *dev, struct sdp_work *curr, int verify)
 			verify = 2;
 		}
 	}
-	printf("\nloading binary file(%s) to %08x, skip=%x, fsize=%x type=%x\r\n", curr->filename, dladdr, skip, fsize, type);
+	printf("\nloading binary file(%s) to 0x%08x, skip=%x, fsize=%x type=%x\r\n", curr->filename, dladdr, skip, fsize, type);
 	ret = load_file(dev, p, cnt, buf, BUF_SIZE,
 			dladdr, fsize, type, xfile);
 	if (ret < 0)
@@ -1656,8 +1664,13 @@ int DoIRomDownload(struct sdp_dev *dev, struct sdp_work *curr, int verify)
 		}
 	}
 	if (dev->mode == MODE_HID) if (type == FT_APP) {
-		printf("jumping to 0x%08x\n", header_addr);
-		jump_command.addr = BE32(header_addr);
+		if (curr->jump_addr > 0) {
+			printf("jumping to jump_addr: 0x%08x\n", curr->jump_addr);
+			jump_command.addr = BE32(curr->jump_addr);
+		} else {
+			printf("jumping to header_addr: 0x%08x\n", header_addr);
+			jump_command.addr = BE32(header_addr);
+		}
 		//Any command will initiate jump for mx51, jump address is ignored by mx51
 		retry = 0;
 		for (;;) {
